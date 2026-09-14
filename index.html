@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Nexora Play — Jeux, quiz, XP et défis.">
+  <title>Nexora Play — V10</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="background">
+    <div class="orb orb-one"></div>
+    <div class="orb orb-two"></div>
+    <div class="grid"></div>
+  </div>
+
+  <header class="topbar">
+    <button class="brand" onclick="navigate('home')">
+      <span class="brand-icon">N</span>
+      <span>
+        <strong>Nexora</strong><b>Play</b>
+      </span>
+      <small>V10</small>
+    </button>
+
+    <nav id="mainNav">
+      <button data-page="home">⌂ Accueil</button>
+      <button data-page="games">🎮 Jeux</button>
+      <button data-page="quiz">🎓 Quiz</button>
+      <button data-page="leaderboard">🏆 Classement</button>
+      <button data-page="profile">👤 Profil</button>
+    </nav>
+
+    <div class="header-actions">
+      <button class="icon-btn" onclick="toggleTheme()" title="Changer le thème">
+        <span id="themeIcon">☾</span>
+      </button>
+
+      <button class="mini-profile" onclick="navigate('profile')">
+        <span id="miniAvatar">P</span>
+        <span>
+          <strong id="miniName">Player</strong>
+          <small id="miniLevel">Niveau 1</small>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <footer>
+    <strong>Nexora Play</strong>
+    <span>Jeux • Quiz • XP • Défis • Progression</span>
+    <span>V10</span>
+  </footer>
+
+  <div id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
