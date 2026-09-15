@@ -9,34 +9,24 @@
    SUPABASE
    ========================================================= */
 
-const SUPABASE_URL =
-  "https://bqnotpfwzsarkawtkako.supabase.co";
+const SUPABASE_URL = "https://bqnotpfwzsarkawtkako.supabase.co";
 
 const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_gREwpkTlsJ-g4urIYrqZGA_gqVFIY0c";
 
-let supabaseClient = null;
-
-if (
-  window.supabase &&
-  typeof window.supabase.createClient === "function"
-) {
-  supabaseClient = window.supabase.createClient(
+const supabaseClient =
+  window.supabase?.createClient(
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY
-  );
-} else {
-  console.error(
-    "Supabase n'est pas chargé. Vérifie le script CDN dans index.html."
-  );
-}
+  ) || null;
+
+const CLOUD_ID_KEY = "nexoraPlayCloudId";
 
 /* =========================================================
    STORAGE
    ========================================================= */
 
 const STORAGE_KEY = "nexoraPlayV10";
-const CLOUD_ID_KEY = "nexoraPlayCloudId";
 
 const defaultPlayer = {
   name: "Player",
@@ -59,41 +49,8 @@ const defaultPlayer = {
 
 let player = loadPlayer();
 
-let globalLeaderboard = [];
-let leaderboardLoading = false;
-let leaderboardError = "";
-
 /* =========================================================
-   CLOUD PLAYER ID
-   ========================================================= */
-
-function getCloudPlayerId() {
-  let id = localStorage.getItem(CLOUD_ID_KEY);
-
-  if (id) {
-    return id;
-  }
-
-  if (
-    window.crypto &&
-    typeof window.crypto.randomUUID === "function"
-  ) {
-    id = window.crypto.randomUUID();
-  } else {
-    id =
-      Date.now().toString(36) +
-      Math.random().toString(36).slice(2);
-  }
-
-  localStorage.setItem(CLOUD_ID_KEY, id);
-
-  return id;
-}
-
-const cloudPlayerId = getCloudPlayerId();
-
-/* =========================================================
-   GAME STATE
+   STATE
    ========================================================= */
 
 const state = {
@@ -126,8 +83,7 @@ const games = [
     name: "Memory Rush",
     icon: "🧠",
     category: "Réflexion",
-    description:
-      "Trouve toutes les paires le plus rapidement possible.",
+    description: "Trouve toutes les paires le plus rapidement possible.",
     xp: 40
   },
   {
@@ -135,8 +91,7 @@ const games = [
     name: "Reaction Test",
     icon: "⚡",
     category: "Réflexes",
-    description:
-      "Attends le bon moment puis clique le plus vite possible.",
+    description: "Attends le bon moment puis clique le plus vite possible.",
     xp: 35
   },
   {
@@ -144,8 +99,7 @@ const games = [
     name: "Number Rush",
     icon: "🔢",
     category: "Challenge",
-    description:
-      "Trouve le nombre mystère en un minimum d'essais.",
+    description: "Trouve le nombre mystère en un minimum d'essais.",
     xp: 35
   },
   {
@@ -153,8 +107,7 @@ const games = [
     name: "Word Scramble",
     icon: "🔤",
     category: "Mots",
-    description:
-      "Remets les lettres mélangées dans le bon ordre.",
+    description: "Remets les lettres mélangées dans le bon ordre.",
     xp: 35
   },
   {
@@ -162,8 +115,7 @@ const games = [
     name: "Code Breaker",
     icon: "🔐",
     category: "Logique",
-    description:
-      "Trouve le code secret à quatre chiffres.",
+    description: "Trouve le code secret à quatre chiffres.",
     xp: 50
   },
   {
@@ -171,8 +123,7 @@ const games = [
     name: "Snake",
     icon: "🐍",
     category: "Arcade",
-    description:
-      "Mange les bonus et fais grandir ton serpent.",
+    description: "Mange les bonus et fais grandir ton serpent.",
     xp: 45
   },
   {
@@ -180,8 +131,7 @@ const games = [
     name: "Pong",
     icon: "🏓",
     category: "Arcade",
-    description:
-      "Affronte l'ordinateur dans un duel classique.",
+    description: "Affronte l'ordinateur dans un duel classique.",
     xp: 50
   },
   {
@@ -189,8 +139,7 @@ const games = [
     name: "Brick Breaker",
     icon: "🧱",
     category: "Arcade",
-    description:
-      "Détruis toutes les briques sans perdre la balle.",
+    description: "Détruis toutes les briques sans perdre la balle.",
     xp: 60
   },
   {
@@ -198,8 +147,7 @@ const games = [
     name: "Space Dodge",
     icon: "🚀",
     category: "Arcade",
-    description:
-      "Évite les météores et bats ton meilleur score.",
+    description: "Évite les météores et bats ton meilleur score.",
     xp: 55
   }
 ];
@@ -316,25 +264,282 @@ const achievementData = [
     "perfect",
     "🧠 Sans faute",
     "Réussis un quiz sans erreur.",
-    p =>
-      p.history.some(
-        h =>
-          h.type === "quiz" &&
-          h.score === h.total &&
-          h.total > 0
-      )
+    p => p.history.some(
+      h => h.type === "quiz" &&
+           h.score === h.total &&
+           h.total > 0
+    )
   ]
 ];
 
 /* =========================================================
-   STORAGE FUNCTIONS
+   CLOUD ID
+   ========================================================= */
+
+function getCloudId() {
+  let id = localStorage.getItem(CLOUD_ID_KEY);
+
+  if (id) return id;
+
+  if (crypto?.randomUUID) {
+    id = crypto.randomUUID();
+  } else {
+    id =
+      "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+        /[xy]/g,
+        c => {
+          const r = Math.random() * 16 | 0;
+          const v = c === "x"
+            ? r
+            : (r & 0x3 | 0x8);
+
+          return v.toString(16);
+        }
+      );
+  }
+
+  localStorage.setItem(CLOUD_ID_KEY, id);
+
+  return id;
+}
+
+/* =========================================================
+   SUPABASE SYNC
+   ========================================================= */
+
+let cloudSyncTimer = null;
+
+function queueCloudSync() {
+  clearTimeout(cloudSyncTimer);
+
+  cloudSyncTimer = setTimeout(() => {
+    syncPlayerToSupabase();
+  }, 500);
+}
+
+async function syncPlayerToSupabase() {
+  if (!supabaseClient) {
+    console.warn("Supabase n'est pas chargé.");
+    return false;
+  }
+
+  try {
+    const payload = {
+      id: getCloudId(),
+      "Nom": player.name,
+      "XP": totalXP(),
+      "niveau": player.level,
+      "games_played": player.gamesPlayed,
+      "Victoires": player.wins,
+      "quiz_correct": player.quizCorrect,
+      "quiz_answered": player.quizAnswered,
+      "updated_at": new Date().toISOString()
+    };
+
+    const { error } = await supabaseClient
+      .from("players")
+      .upsert(payload, {
+        onConflict: "id"
+      });
+
+    if (error) {
+      console.error("Erreur Supabase :", error);
+      return false;
+    }
+
+    console.log("☁️ Profil synchronisé avec Supabase.");
+
+    return true;
+
+  } catch (error) {
+    console.error("Erreur synchronisation :", error);
+    return false;
+  }
+}
+
+/* =========================================================
+   LOAD GLOBAL LEADERBOARD
+   ========================================================= */
+
+async function loadGlobalLeaderboard() {
+  const container =
+    document.getElementById("globalLeaderboardBody");
+
+  if (!container) return;
+
+  if (!supabaseClient) {
+    container.innerHTML = `
+      <div class="empty">
+        ⚠️ Supabase n'est pas chargé.
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="empty">
+      ⏳ Chargement du classement mondial...
+    </div>
+  `;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("players")
+      .select(`
+        id,
+        "Nom",
+        "XP",
+        niveau,
+        games_played,
+        "Victoires",
+        quiz_correct,
+        quiz_answered
+      `)
+      .order("XP", {
+        ascending: false
+      })
+      .order("Victoires", {
+        ascending: false
+      })
+      .limit(50);
+
+    if (error) {
+      console.error("Erreur classement :", error);
+
+      container.innerHTML = `
+        <div class="empty">
+          <div style="font-size:45px">⚠️</div>
+          <h3>Classement indisponible</h3>
+          <p style="margin-top:8px">
+            Impossible de charger le classement mondial.
+          </p>
+        </div>
+      `;
+
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      container.innerHTML = `
+        <div class="empty">
+          <div style="font-size:45px">🏆</div>
+          <h3>Aucun joueur pour le moment</h3>
+          <p style="margin-top:8px">
+            Sois le premier à jouer !
+          </p>
+        </div>
+      `;
+
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Joueur</th>
+              <th>Niveau</th>
+              <th>Parties</th>
+              <th>Victoires</th>
+              <th>XP</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${data.map((p, index) => {
+
+              const isMe =
+                p.id === getCloudId();
+
+              const rank =
+                index === 0
+                  ? "🥇"
+                  : index === 1
+                    ? "🥈"
+                    : index === 2
+                      ? "🥉"
+                      : index + 1;
+
+              return `
+                <tr class="${isMe ? "current-player" : ""}">
+
+                  <td class="rank">
+                    ${rank}
+                  </td>
+
+                  <td>
+                    <strong>
+                      ${escapeHTML(
+                        p["Nom"] || "Player"
+                      )}
+                    </strong>
+
+                    ${
+                      isMe
+                        ? `<span class="tag" style="margin-left:8px">
+                             TOI
+                           </span>`
+                        : ""
+                    }
+                  </td>
+
+                  <td>
+                    ${Number(p.niveau) || 1}
+                  </td>
+
+                  <td>
+                    ${Number(p.games_played) || 0}
+                  </td>
+
+                  <td>
+                    ${Number(p["Victoires"]) || 0}
+                  </td>
+
+                  <td>
+                    ⭐ ${Number(p["XP"]) || 0}
+                  </td>
+
+                </tr>
+              `;
+
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="muted" style="margin-top:15px;text-align:center">
+        🌐 Top 50 mondial
+      </p>
+    `;
+
+  } catch (error) {
+    console.error(error);
+
+    container.innerHTML = `
+      <div class="empty">
+        <div style="font-size:45px">⚠️</div>
+        <h3>Classement indisponible</h3>
+        <p style="margin-top:8px">
+          Une erreur est survenue.
+        </p>
+      </div>
+    `;
+  }
+}
+
+/* =========================================================
+   STORAGE
    ========================================================= */
 
 function loadPlayer() {
   try {
-    const saved = JSON.parse(
-      localStorage.getItem(STORAGE_KEY)
-    );
+    const saved =
+      JSON.parse(
+        localStorage.getItem(STORAGE_KEY)
+      );
 
     if (!saved) {
       return structuredClone(defaultPlayer);
@@ -343,17 +548,26 @@ function loadPlayer() {
     return {
       ...structuredClone(defaultPlayer),
       ...saved,
-      favoriteGames: Array.isArray(saved.favoriteGames)
-        ? saved.favoriteGames
-        : [],
-      achievements: Array.isArray(saved.achievements)
-        ? saved.achievements
-        : [],
-      history: Array.isArray(saved.history)
-        ? saved.history
-        : [],
-      bestScores: saved.bestScores || {}
+
+      favoriteGames:
+        Array.isArray(saved.favoriteGames)
+          ? saved.favoriteGames
+          : [],
+
+      achievements:
+        Array.isArray(saved.achievements)
+          ? saved.achievements
+          : [],
+
+      history:
+        Array.isArray(saved.history)
+          ? saved.history
+          : [],
+
+      bestScores:
+        saved.bestScores || {}
     };
+
   } catch {
     return structuredClone(defaultPlayer);
   }
@@ -380,7 +594,9 @@ function escapeHTML(value) {
    ========================================================= */
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date()
+    .toISOString()
+    .slice(0, 10);
 }
 
 function random(min, max) {
@@ -392,13 +608,23 @@ function random(min, max) {
 function shuffle(array) {
   const copy = [...array];
 
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(
-      Math.random() * (i + 1)
-    );
+  for (
+    let i = copy.length - 1;
+    i > 0;
+    i--
+  ) {
+    const j =
+      Math.floor(
+        Math.random() * (i + 1)
+      );
 
-    [copy[i], copy[j]] =
-      [copy[j], copy[i]];
+    [
+      copy[i],
+      copy[j]
+    ] = [
+      copy[j],
+      copy[i]
+    ];
   }
 
   return copy;
@@ -411,13 +637,15 @@ function showToast(message) {
   if (!toast) return;
 
   toast.textContent = message;
+
   toast.classList.add("show");
 
   clearTimeout(showToast.timer);
 
-  showToast.timer = setTimeout(() => {
-    toast.classList.remove("show");
-  }, 2600);
+  showToast.timer =
+    setTimeout(() => {
+      toast.classList.remove("show");
+    }, 2600);
 }
 
 function addTimer(fn, ms) {
@@ -444,7 +672,10 @@ function stopAll() {
   state.intervals = [];
 
   if (state.animation !== null) {
-    cancelAnimationFrame(state.animation);
+    cancelAnimationFrame(
+      state.animation
+    );
+
     state.animation = null;
   }
 
@@ -454,6 +685,7 @@ function stopAll() {
   window.onkeyup = null;
 
   state.game = null;
+
   state.quiz = null;
   state.memory = null;
   state.reaction = null;
@@ -467,17 +699,8 @@ function stopAll() {
 }
 
 function xpForNextLevel() {
-  return 100 + (player.level - 1) * 50;
-}
-
-function totalXP() {
-  let total = player.xp;
-
-  for (let i = 1; i < player.level; i++) {
-    total += 100 + (i - 1) * 50;
-  }
-
-  return total;
+  return 100 +
+    (player.level - 1) * 50;
 }
 
 function addXP(amount) {
@@ -496,7 +719,9 @@ function addXP(amount) {
     player.xp >= xpForNextLevel()
   ) {
     player.xp -= xpForNextLevel();
+
     player.level++;
+
     leveled = true;
   }
 
@@ -508,130 +733,7 @@ function addXP(amount) {
 
   savePlayer();
   updateHeader();
-
-  syncPlayerToCloud();
 }
-
-/* =========================================================
-   SUPABASE SYNC
-   ========================================================= */
-
-function cloudPlayerPayload() {
-  return {
-    id: cloudPlayerId,
-    name: player.name,
-    avatar: player.avatar,
-    xp: totalXP(),
-    level: player.level,
-    games_played: player.gamesPlayed,
-    wins: player.wins,
-    losses: player.losses,
-    streak: player.streak
-  };
-}
-
-async function syncPlayerToCloud() {
-  if (!supabaseClient) {
-    return;
-  }
-
-  try {
-    const payload =
-      cloudPlayerPayload();
-
-    const { error } =
-      await supabaseClient
-        .from("players")
-        .upsert(payload, {
-          onConflict: "id"
-        });
-
-    if (error) {
-      console.error(
-        "Erreur synchronisation Supabase :",
-        error
-      );
-    }
-  } catch (error) {
-    console.error(
-      "Erreur cloud :",
-      error
-    );
-  }
-}
-
-/* =========================================================
-   GLOBAL LEADERBOARD
-   ========================================================= */
-
-async function loadGlobalLeaderboard() {
-  leaderboardLoading = true;
-  leaderboardError = "";
-
-  try {
-    if (!supabaseClient) {
-      throw new Error(
-        "Supabase non chargé."
-      );
-    }
-
-    const { data, error } =
-      await supabaseClient
-        .from("players")
-        .select(
-          "id,name,avatar,xp,level,games_played,wins,losses,streak"
-        )
-        .order("xp", {
-          ascending: false
-        })
-        .limit(50);
-
-    if (error) {
-      throw error;
-    }
-
-    globalLeaderboard =
-      Array.isArray(data)
-        ? data
-        : [];
-  } catch (error) {
-    console.error(
-      "Erreur classement mondial :",
-      error
-    );
-
-    globalLeaderboard = [];
-    leaderboardError =
-      "Impossible de charger le classement mondial.";
-  } finally {
-    leaderboardLoading = false;
-
-    if (state.page === "leaderboard") {
-      render();
-    }
-  }
-}
-
-function getPlayerRank() {
-  if (!globalLeaderboard.length) {
-    return null;
-  }
-
-  const index =
-    globalLeaderboard.findIndex(
-      p => p.id === cloudPlayerId
-    );
-
-  if (index === -1) {
-    return null;
-  }
-
-  return index + 1;
-}
-
-/* =========================================================
-   REGISTER PLAY
-   ========================================================= */
 
 function registerPlay(
   gameName,
@@ -642,22 +744,26 @@ function registerPlay(
   const day = today();
 
   if (player.lastDay !== day) {
+
     if (player.lastDay) {
+
       const previous =
         new Date(player.lastDay);
 
       const current =
         new Date(day);
 
-      const diff = Math.round(
-        (current - previous) /
-        86400000
-      );
+      const diff =
+        Math.round(
+          (current - previous) /
+          86400000
+        );
 
       player.streak =
         diff === 1
           ? player.streak + 1
           : 1;
+
     } else {
       player.streak = 1;
     }
@@ -679,9 +785,9 @@ function registerPlay(
     score,
     won,
     xp,
-    date: new Date().toLocaleString(
-      "fr-FR"
-    )
+    date:
+      new Date()
+        .toLocaleString("fr-FR")
   });
 
   player.history =
@@ -701,18 +807,17 @@ function registerPlay(
   addXP(xp);
 
   updateAchievements();
+
   savePlayer();
 
-  syncPlayerToCloud();
+  /* Synchronisation mondiale */
+  queueCloudSync();
 }
-
-/* =========================================================
-   ACHIEVEMENTS
-   ========================================================= */
 
 function updateAchievements() {
   achievementData.forEach(
     ([id, , , condition]) => {
+
       if (
         !player.achievements.includes(id) &&
         condition(player)
@@ -723,15 +828,12 @@ function updateAchievements() {
           "🏅 Succès débloqué !"
         );
       }
+
     }
   );
 
   savePlayer();
 }
-
-/* =========================================================
-   FAVORITES
-   ========================================================= */
 
 function toggleFavorite(id) {
   if (
@@ -746,25 +848,30 @@ function toggleFavorite(id) {
   }
 
   savePlayer();
+
   render();
 }
 
-/* =========================================================
-   HEADER
-   ========================================================= */
-
 function updateHeader() {
   const miniName =
-    document.getElementById("miniName");
+    document.getElementById(
+      "miniName"
+    );
 
   const miniLevel =
-    document.getElementById("miniLevel");
+    document.getElementById(
+      "miniLevel"
+    );
 
   const miniAvatar =
-    document.getElementById("miniAvatar");
+    document.getElementById(
+      "miniAvatar"
+    );
 
   const themeIcon =
-    document.getElementById("themeIcon");
+    document.getElementById(
+      "themeIcon"
+    );
 
   if (miniName) {
     miniName.textContent =
@@ -803,10 +910,6 @@ function updateHeader() {
     });
 }
 
-/* =========================================================
-   THEME / NAVIGATION
-   ========================================================= */
-
 function toggleTheme() {
   player.theme =
     player.theme === "dark"
@@ -814,6 +917,7 @@ function toggleTheme() {
       : "dark";
 
   savePlayer();
+
   updateHeader();
 }
 
@@ -828,10 +932,6 @@ function navigate(page) {
     top: 0,
     behavior: "smooth"
   });
-
-  if (page === "leaderboard") {
-    loadGlobalLeaderboard();
-  }
 }
 
 /* =========================================================
@@ -845,6 +945,7 @@ function render() {
   if (!app) return;
 
   switch (state.page) {
+
     case "games":
       app.innerHTML =
         renderGames();
@@ -881,6 +982,12 @@ function render() {
   }
 
   updateHeader();
+
+  if (
+    state.page === "leaderboard"
+  ) {
+    loadGlobalLeaderboard();
+  }
 }
 
 /* =========================================================
@@ -901,6 +1008,7 @@ function renderHome() {
     <div class="page">
 
       <section class="hero">
+
         <div>
 
           <div class="eyebrow">
@@ -956,9 +1064,11 @@ function renderHome() {
             </strong>
 
             <div class="xp-bar">
+
               <div
                 style="width:${percent}%"
               ></div>
+
             </div>
 
             <small class="muted">
@@ -977,25 +1087,33 @@ function renderHome() {
 
           <div class="stat">
             <div class="icon">🎮</div>
-            <strong>${player.gamesPlayed}</strong>
+            <strong>
+              ${player.gamesPlayed}
+            </strong>
             <span>Parties jouées</span>
           </div>
 
           <div class="stat">
             <div class="icon">🏆</div>
-            <strong>${player.wins}</strong>
+            <strong>
+              ${player.wins}
+            </strong>
             <span>Victoires</span>
           </div>
 
           <div class="stat">
             <div class="icon">⭐</div>
-            <strong>${totalXP()}</strong>
+            <strong>
+              ${totalXP()}
+            </strong>
             <span>XP total</span>
           </div>
 
           <div class="stat">
             <div class="icon">🔥</div>
-            <strong>${player.streak}</strong>
+            <strong>
+              ${player.streak}
+            </strong>
             <span>Streak</span>
           </div>
 
@@ -1008,10 +1126,15 @@ function renderHome() {
         <div class="section-head">
 
           <div>
-            <h2>🚀 Défis du jour</h2>
+
+            <h2>
+              🚀 Défis du jour
+            </h2>
+
             <p>
               Quelques objectifs pour progresser.
             </p>
+
           </div>
 
         </div>
@@ -1027,10 +1150,15 @@ function renderHome() {
         <div class="section-head">
 
           <div>
-            <h2>🔥 Jeux populaires</h2>
+
+            <h2>
+              🔥 Jeux populaires
+            </h2>
+
             <p>
               Choisis ton prochain défi.
             </p>
+
           </div>
 
           <button
@@ -1055,36 +1183,52 @@ function renderHome() {
   `;
 }
 
-/* =========================================================
-   MISSIONS
-   ========================================================= */
+function totalXP() {
+  let total =
+    player.xp;
+
+  for (
+    let i = 1;
+    i < player.level;
+    i++
+  ) {
+    total +=
+      100 +
+      (i - 1) * 50;
+  }
+
+  return total;
+}
 
 function renderMissions() {
   const missions = [
     {
       title: "Jouer 3 parties",
-      current: Math.min(
-        player.gamesPlayed,
-        3
-      ),
+      current:
+        Math.min(
+          player.gamesPlayed,
+          3
+        ),
       target: 3,
       reward: 60
     },
     {
       title: "Gagner 2 parties",
-      current: Math.min(
-        player.wins,
-        2
-      ),
+      current:
+        Math.min(
+          player.wins,
+          2
+        ),
       target: 2,
       reward: 80
     },
     {
       title: "Répondre à 5 questions",
-      current: Math.min(
-        player.quizAnswered,
-        5
-      ),
+      current:
+        Math.min(
+          player.quizAnswered,
+          5
+        ),
       target: 5,
       reward: 50
     }
@@ -1092,6 +1236,7 @@ function renderMissions() {
 
   return missions
     .map(m => {
+
       const done =
         m.current >= m.target;
 
@@ -1102,16 +1247,20 @@ function renderMissions() {
         );
 
       return `
-        <div
-          class="mission ${
-            done ? "completed" : ""
-          }"
-        >
+        <div class="mission ${
+          done
+            ? "completed"
+            : ""
+        }">
 
           <div class="mission-top">
 
             <strong>
-              ${done ? "✅" : "🎯"}
+              ${
+                done
+                  ? "✅"
+                  : "🎯"
+              }
               ${m.title}
             </strong>
 
@@ -1126,20 +1275,19 @@ function renderMissions() {
           </p>
 
           <div class="mission-progress">
+
             <div
               style="width:${percent}%"
             ></div>
+
           </div>
 
         </div>
       `;
+
     })
     .join("");
 }
-
-/* =========================================================
-   GAME CARD
-   ========================================================= */
 
 function gameCard(game) {
   const favorite =
@@ -1157,12 +1305,14 @@ function gameCard(game) {
           right:14px;
           top:14px
         "
-        onclick="
-          toggleFavorite('${game.id}')
-        "
+        onclick="toggleFavorite('${game.id}')"
         title="Favori"
       >
-        ${favorite ? "❤️" : "♡"}
+        ${
+          favorite
+            ? "❤️"
+            : "♡"
+        }
       </button>
 
       <div class="game-icon">
@@ -1185,9 +1335,7 @@ function gameCard(game) {
 
         <button
           class="btn primary"
-          onclick="
-            startGame('${game.id}')
-          "
+          onclick="startGame('${game.id}')"
         >
           Jouer
         </button>
@@ -1219,8 +1367,8 @@ function renderGames() {
           </h2>
 
           <p>
-            Des petits jeux rapides à jouer
-            directement dans le navigateur.
+            Des petits jeux rapides à jouer directement
+            dans le navigateur.
           </p>
 
         </div>
@@ -1243,9 +1391,7 @@ function renderGames() {
         <button
           class="filter active"
           data-filter="all"
-          onclick="
-            setGameFilter('all')
-          "
+          onclick="setGameFilter('all')"
         >
           Tous
         </button>
@@ -1253,9 +1399,7 @@ function renderGames() {
         <button
           class="filter"
           data-filter="Réflexion"
-          onclick="
-            setGameFilter('Réflexion')
-          "
+          onclick="setGameFilter('Réflexion')"
         >
           🧠 Réflexion
         </button>
@@ -1263,9 +1407,7 @@ function renderGames() {
         <button
           class="filter"
           data-filter="Réflexes"
-          onclick="
-            setGameFilter('Réflexes')
-          "
+          onclick="setGameFilter('Réflexes')"
         >
           ⚡ Réflexes
         </button>
@@ -1273,9 +1415,7 @@ function renderGames() {
         <button
           class="filter"
           data-filter="Mots"
-          onclick="
-            setGameFilter('Mots')
-          "
+          onclick="setGameFilter('Mots')"
         >
           🔤 Mots
         </button>
@@ -1283,9 +1423,7 @@ function renderGames() {
         <button
           class="filter"
           data-filter="Arcade"
-          onclick="
-            setGameFilter('Arcade')
-          "
+          onclick="setGameFilter('Arcade')"
         >
           👾 Arcade
         </button>
@@ -1308,15 +1446,18 @@ function renderGames() {
 let currentGameFilter = "all";
 
 function setGameFilter(filter) {
-  currentGameFilter = filter;
+  currentGameFilter =
+    filter;
 
   document
     .querySelectorAll(".filter")
     .forEach(button => {
+
       button.classList.toggle(
         "active",
         button.dataset.filter === filter
       );
+
     });
 
   filterGames();
@@ -1325,13 +1466,16 @@ function setGameFilter(filter) {
 function filterGames() {
   const search =
     (
-      document.getElementById(
-        "gameSearch"
-      )?.value || ""
+      document
+        .getElementById(
+          "gameSearch"
+        )
+        ?.value || ""
     ).toLowerCase();
 
   const filtered =
     games.filter(game => {
+
       const categoryOk =
         currentGameFilter === "all" ||
         game.category ===
@@ -1383,6 +1527,7 @@ function startGame(id) {
   render();
 
   switch (id) {
+
     case "memory":
       startMemory();
       break;
@@ -1441,14 +1586,14 @@ function renderGameScreen() {
 
           <button
             class="btn"
-            onclick="
-              navigate('games')
-            "
+            onclick="navigate('games')"
           >
             ← Jeux
           </button>
 
-          <h2 style="margin-top:15px">
+          <h2
+            style="margin-top:15px"
+          >
             ${game.icon}
             ${game.name}
           </h2>
@@ -1516,12 +1661,16 @@ function startMemory() {
 
         <span class="score-pill">
           Coups :
-          <b id="memoryMoves">0</b>
+          <b id="memoryMoves">
+            0
+          </b>
         </span>
 
         <span class="score-pill">
           Paires :
-          <b id="memoryPairs">0</b>/8
+          <b id="memoryPairs">
+            0
+          </b>/8
         </span>
 
       </div>
@@ -1554,6 +1703,7 @@ function drawMemory() {
     state.memory.cards
       .map(
         (symbol, index) => {
+
           const visible =
             state.memory.flipped
               .includes(index) ||
@@ -1562,20 +1712,17 @@ function drawMemory() {
 
           return `
             <button
-              class="
-                memory-card
-                ${visible ? "flipped" : ""}
-                ${
-                  state.memory.matched.includes(
-                    index
-                  )
-                    ? "matched"
-                    : ""
-                }
-              "
-              onclick="
-                memoryClick(${index})
-              "
+              class="memory-card ${
+                visible
+                  ? "flipped"
+                  : ""
+              } ${
+                state.memory.matched
+                  .includes(index)
+                  ? "matched"
+                  : ""
+              }"
+              onclick="memoryClick(${index})"
             >
               ${
                 visible
@@ -1618,17 +1765,15 @@ function memoryClick(index) {
     return;
 
   if (
-    game.flipped.includes(
-      index
-    )
+    game.flipped
+      .includes(index)
   ) {
     return;
   }
 
   if (
-    game.matched.includes(
-      index
-    )
+    game.matched
+      .includes(index)
   ) {
     return;
   }
@@ -1645,13 +1790,16 @@ function memoryClick(index) {
 
   game.moves++;
 
-  const [a, b] =
-    game.flipped;
+  const [
+    a,
+    b
+  ] = game.flipped;
 
   if (
     game.cards[a] ===
     game.cards[b]
   ) {
+
     game.matched.push(
       a,
       b
@@ -1665,6 +1813,7 @@ function memoryClick(index) {
       game.matched.length ===
       game.cards.length
     ) {
+
       const score =
         Math.max(
           100,
@@ -1693,6 +1842,7 @@ function memoryClick(index) {
   game.locked = true;
 
   addTimer(() => {
+
     if (!state.memory)
       return;
 
@@ -1700,6 +1850,7 @@ function memoryClick(index) {
     game.locked = false;
 
     drawMemory();
+
   }, 700);
 }
 
@@ -1719,10 +1870,11 @@ function startReaction() {
     <div class="card">
 
       <div class="center">
+
         <p class="muted">
-          Clique uniquement quand
-          la zone devient verte.
+          Clique uniquement quand la zone devient verte.
         </p>
+
       </div>
 
       <div
@@ -1746,8 +1898,6 @@ function startReaction() {
       "reactionZone"
     );
 
-  if (!zone) return;
-
   zone.textContent =
     "Attends...";
 
@@ -1756,6 +1906,7 @@ function startReaction() {
   );
 
   addTimer(() => {
+
     if (!state.reaction)
       return;
 
@@ -1775,6 +1926,7 @@ function startReaction() {
     zone.classList.add(
       "ready"
     );
+
   }, random(1500, 4000));
 }
 
@@ -1787,14 +1939,17 @@ function reactionClick() {
       "reactionZone"
     );
 
-  if (!game || !zone)
+  if (
+    !game ||
+    !zone
+  ) {
     return;
+  }
 
   if (
     game.phase ===
     "waiting"
   ) {
-    stopAll();
 
     registerPlay(
       "Reaction Test",
@@ -1823,7 +1978,7 @@ function reactionClick() {
   const time =
     Math.round(
       performance.now() -
-        game.start
+      game.start
     );
 
   const score =
@@ -1860,7 +2015,8 @@ function startNumber() {
   if (!content) return;
 
   state.number = {
-    target: random(1, 100),
+    target:
+      random(1, 100),
     attempts: 0,
     max: 8
   };
@@ -1871,8 +2027,7 @@ function startNumber() {
       <div class="center">
 
         <p class="muted">
-          Je pense à un nombre entre
-          1 et 100.
+          Je pense à un nombre entre 1 et 100.
         </p>
 
       </div>
@@ -1913,7 +2068,9 @@ function startNumber() {
         style="margin-top:15px"
       >
         Essais :
-        <b id="numberAttempts">0</b>
+        <b id="numberAttempts">
+          0
+        </b>
         / 8
       </p>
 
@@ -1936,8 +2093,12 @@ function numberGuess() {
       "numberInput"
     );
 
-  if (!game || !input)
+  if (
+    !game ||
+    !input
+  ) {
     return;
+  }
 
   const value =
     Number(input.value);
@@ -1947,6 +2108,7 @@ function numberGuess() {
     value < 1 ||
     value > 100
   ) {
+
     showToast(
       "Entre un nombre de 1 à 100."
     );
@@ -1957,8 +2119,10 @@ function numberGuess() {
   game.attempts++;
 
   if (
-    value === game.target
+    value ===
+    game.target
   ) {
+
     const score =
       Math.max(
         100,
@@ -2011,6 +2175,7 @@ function numberGuess() {
     game.attempts >=
     game.max
   ) {
+
     registerPlay(
       "Number Rush",
       0,
@@ -2076,8 +2241,7 @@ function startWord() {
     <div class="card center">
 
       <p class="muted">
-        Remets les lettres dans
-        le bon ordre.
+        Remets les lettres dans le bon ordre.
       </p>
 
       <div class="word-display">
@@ -2124,8 +2288,12 @@ function wordGuess() {
       "wordInput"
     );
 
-  if (!game || !input)
+  if (
+    !game ||
+    !input
+  ) {
     return;
+  }
 
   const answer =
     input.value
@@ -2141,8 +2309,10 @@ function wordGuess() {
     return;
 
   if (
-    answer === game.word
+    answer ===
+    game.word
   ) {
+
     registerPlay(
       "Word Scramble",
       100,
@@ -2156,7 +2326,9 @@ function wordGuess() {
       game.word.toUpperCase(),
       35
     );
+
   } else {
+
     input.value = "";
 
     showToast(
@@ -2180,7 +2352,10 @@ function startCode() {
   const code =
     String(
       random(0, 9999)
-    ).padStart(4, "0");
+    ).padStart(
+      4,
+      "0"
+    );
 
   state.code = {
     code,
@@ -2192,8 +2367,7 @@ function startCode() {
     <div class="card center">
 
       <p class="muted">
-        Trouve le code secret
-        à 4 chiffres.
+        Trouve le code secret à 4 chiffres.
       </p>
 
       <div class="code-display">
@@ -2269,6 +2443,7 @@ function codeGuess() {
   if (
     !/^\d{4}$/.test(value)
   ) {
+
     showToast(
       "Entre exactement 4 chiffres."
     );
@@ -2279,8 +2454,10 @@ function codeGuess() {
   game.attempts++;
 
   if (
-    value === game.code
+    value ===
+    game.code
   ) {
+
     const score =
       Math.max(
         100,
@@ -2313,16 +2490,20 @@ function codeGuess() {
     i < 4;
     i++
   ) {
+
     if (
       value[i] ===
       game.code[i]
     ) {
+
       correctPlace++;
+
     } else if (
       game.code.includes(
         value[i]
       )
     ) {
+
       correctDigit++;
     }
   }
@@ -2339,6 +2520,7 @@ function codeGuess() {
     game.attempts >=
     game.max
   ) {
+
     registerPlay(
       "Code Breaker",
       0,
@@ -2374,7 +2556,9 @@ function startSnake() {
 
         <span class="score-pill">
           Score :
-          <b id="snakeScore">0</b>
+          <b id="snakeScore">
+            0
+          </b>
         </span>
 
       </div>
@@ -2392,33 +2576,25 @@ function startSnake() {
       <div class="mobile-controls">
 
         <button
-          onclick="
-            snakeDirection(0,-1)
-          "
+          onclick="snakeDirection(0,-1)"
         >
           ▲
         </button>
 
         <button
-          onclick="
-            snakeDirection(-1,0)
-          "
+          onclick="snakeDirection(-1,0)"
         >
           ◀
         </button>
 
         <button
-          onclick="
-            snakeDirection(0,1)
-          "
+          onclick="snakeDirection(0,1)"
         >
           ▼
         </button>
 
         <button
-          onclick="
-            snakeDirection(1,0)
-          "
+          onclick="snakeDirection(1,0)"
         >
           ▶
         </button>
@@ -2433,8 +2609,6 @@ function startSnake() {
       "snakeCanvas"
     );
 
-  if (!canvas) return;
-
   const ctx =
     canvas.getContext("2d");
 
@@ -2442,16 +2616,27 @@ function startSnake() {
     canvas,
     ctx,
     cell: 21,
-    cols: Math.floor(
-      canvas.width / 21
-    ),
-    rows: Math.floor(
-      canvas.height / 21
-    ),
+    cols:
+      Math.floor(
+        canvas.width / 21
+      ),
+    rows:
+      Math.floor(
+        canvas.height / 21
+      ),
     snake: [
-      { x: 8, y: 8 },
-      { x: 7, y: 8 },
-      { x: 6, y: 8 }
+      {
+        x: 8,
+        y: 8
+      },
+      {
+        x: 7,
+        y: 8
+      },
+      {
+        x: 6,
+        y: 8
+      }
     ],
     dir: {
       x: 1,
@@ -2471,6 +2656,7 @@ function startSnake() {
   spawnSnakeFood();
 
   window.onkeydown = e => {
+
     const keys = {
       ArrowUp: [0, -1],
       ArrowDown: [0, 1],
@@ -2483,6 +2669,7 @@ function startSnake() {
     };
 
     if (keys[e.key]) {
+
       e.preventDefault();
 
       snakeDirection(
@@ -2530,16 +2717,20 @@ function spawnSnakeFood() {
   let food;
 
   do {
+
     food = {
-      x: random(
-        0,
-        game.cols - 1
-      ),
-      y: random(
-        0,
-        game.rows - 1
-      )
+      x:
+        random(
+          0,
+          game.cols - 1
+        ),
+      y:
+        random(
+          0,
+          game.rows - 1
+        )
     };
+
   } while (
     game.snake.some(
       p =>
@@ -2567,6 +2758,7 @@ function snakeLoop(timestamp) {
       game.lastMove >=
     game.speed
   ) {
+
     game.lastMove =
       timestamp;
 
@@ -2602,6 +2794,7 @@ function snakeLoop(timestamp) {
       hitWall ||
       hitSelf
     ) {
+
       game.gameOver =
         true;
 
@@ -2612,7 +2805,9 @@ function snakeLoop(timestamp) {
         "Snake",
         game.score,
         won,
-        won ? 45 : 8
+        won
+          ? 45
+          : 8
       );
 
       showGameResult(
@@ -2623,7 +2818,9 @@ function snakeLoop(timestamp) {
           ? "Belle partie !"
           : "Game Over",
         `Score : ${game.score}`,
-        won ? 45 : 8
+        won
+          ? 45
+          : 8
       );
 
       return;
@@ -2639,6 +2836,7 @@ function snakeLoop(timestamp) {
       next.y ===
         game.food.y
     ) {
+
       game.score++;
 
       spawnSnakeFood();
@@ -2652,7 +2850,9 @@ function snakeLoop(timestamp) {
         scoreEl.textContent =
           game.score;
       }
+
     } else {
+
       game.snake.pop();
     }
   }
@@ -2696,6 +2896,7 @@ function drawSnake() {
 
   game.snake.forEach(
     (p, index) => {
+
       ctx.fillStyle =
         index === 0
           ? "#20d9ee"
@@ -2747,12 +2948,16 @@ function startPong() {
 
         <span class="score-pill">
           Toi :
-          <b id="playerScore">0</b>
+          <b id="playerScore">
+            0
+          </b>
         </span>
 
         <span class="score-pill">
           CPU :
-          <b id="cpuScore">0</b>
+          <b id="cpuScore">
+            0
+          </b>
         </span>
 
       </div>
@@ -2771,24 +2976,19 @@ function startPong() {
         class="center muted"
         style="margin-top:12px"
       >
-        ↑ ↓ ou W/S pour déplacer
-        ta raquette
+        ↑ ↓ ou W/S pour déplacer ta raquette
       </p>
 
       <div class="mobile-controls">
 
         <button
-          onclick="
-            pongMove(-1)
-          "
+          onclick="pongMove(-1)"
         >
           ▲
         </button>
 
         <button
-          onclick="
-            pongMove(1)
-          "
+          onclick="pongMove(1)"
         >
           ▼
         </button>
@@ -2802,8 +3002,6 @@ function startPong() {
     document.getElementById(
       "pongCanvas"
     );
-
-  if (!canvas) return;
 
   const ctx =
     canvas.getContext("2d");
@@ -2829,24 +3027,21 @@ function startPong() {
   };
 
   window.onkeydown = e => {
+
     if (!state.pong)
       return;
 
     if (
-      e.key ===
-        "ArrowUp" ||
-      e.key.toLowerCase() ===
-        "w"
+      e.key === "ArrowUp" ||
+      e.key.toLowerCase() === "w"
     ) {
       state.pong.up =
         true;
     }
 
     if (
-      e.key ===
-        "ArrowDown" ||
-      e.key.toLowerCase() ===
-        "s"
+      e.key === "ArrowDown" ||
+      e.key.toLowerCase() === "s"
     ) {
       state.pong.down =
         true;
@@ -2854,24 +3049,21 @@ function startPong() {
   };
 
   window.onkeyup = e => {
+
     if (!state.pong)
       return;
 
     if (
-      e.key ===
-        "ArrowUp" ||
-      e.key.toLowerCase() ===
-        "w"
+      e.key === "ArrowUp" ||
+      e.key.toLowerCase() === "w"
     ) {
       state.pong.up =
         false;
     }
 
     if (
-      e.key ===
-        "ArrowDown" ||
-      e.key.toLowerCase() ===
-        "s"
+      e.key === "ArrowDown" ||
+      e.key.toLowerCase() === "s"
     ) {
       state.pong.down =
         false;
@@ -2913,7 +3105,8 @@ function resetPongBall(
       game.canvas.width / 2,
     y:
       game.canvas.height / 2,
-    vx: 5 * direction,
+    vx:
+      5 * direction,
     vy:
       random(-30, 30) / 10
   };
@@ -2933,9 +3126,10 @@ function pongLoop(timestamp) {
   const dt =
     Math.min(
       2,
-      (timestamp -
-        game.last) /
-        16.67 || 1
+      (
+        timestamp -
+        game.last
+      ) / 16.67 || 1
     );
 
   game.last =
@@ -2968,7 +3162,7 @@ function pongLoop(timestamp) {
   game.cpuY +=
     Math.sign(
       target -
-        game.cpuY
+      game.cpuY
     ) *
     4 *
     dt;
@@ -2984,10 +3178,12 @@ function pongLoop(timestamp) {
     );
 
   game.ball.x +=
-    game.ball.vx * dt;
+    game.ball.vx *
+    dt;
 
   game.ball.y +=
-    game.ball.vy * dt;
+    game.ball.vy *
+    dt;
 
   if (
     game.ball.y <= 8 ||
@@ -3007,7 +3203,7 @@ function pongLoop(timestamp) {
       game.playerY &&
     ball.y <=
       game.playerY +
-        game.paddleH;
+      game.paddleH;
 
   const cpuHit =
     ball.x >=
@@ -3018,12 +3214,13 @@ function pongLoop(timestamp) {
       game.cpuY &&
     ball.y <=
       game.cpuY +
-        game.paddleH;
+      game.paddleH;
 
   if (
     playerHit &&
     ball.vx < 0
   ) {
+
     ball.vx =
       Math.abs(
         ball.vx
@@ -3036,13 +3233,14 @@ function pongLoop(timestamp) {
           game.playerY +
           game.paddleH / 2
         )
-      ) * 0.06;
+      ) * .06;
   }
 
   if (
     cpuHit &&
     ball.vx > 0
   ) {
+
     ball.vx =
       -Math.abs(
         ball.vx
@@ -3055,12 +3253,13 @@ function pongLoop(timestamp) {
           game.cpuY +
           game.paddleH / 2
         )
-      ) * 0.06;
+      ) * .06;
   }
 
   if (
     ball.x < -20
   ) {
+
     game.cpuScore++;
 
     updatePongScore();
@@ -3068,7 +3267,9 @@ function pongLoop(timestamp) {
     if (
       game.cpuScore >= 5
     ) {
+
       endPong(false);
+
       return;
     }
 
@@ -3082,6 +3283,7 @@ function pongLoop(timestamp) {
     ball.x >
     game.canvas.width + 20
   ) {
+
     game.playerScore++;
 
     updatePongScore();
@@ -3089,7 +3291,9 @@ function pongLoop(timestamp) {
     if (
       game.playerScore >= 5
     ) {
+
       endPong(true);
+
       return;
     }
 
@@ -3222,7 +3426,8 @@ function endPong(won) {
     return;
   }
 
-  game.ended = true;
+  game.ended =
+    true;
 
   const score =
     game.playerScore *
@@ -3232,7 +3437,9 @@ function endPong(won) {
     "Pong",
     score,
     won,
-    won ? 50 : 10
+    won
+      ? 50
+      : 10
   );
 
   showGameResult(
@@ -3243,7 +3450,9 @@ function endPong(won) {
       ? "Victoire !"
       : "Défaite",
     `${game.playerScore} - ${game.cpuScore}`,
-    won ? 50 : 10
+    won
+      ? 50
+      : 10
   );
 }
 
@@ -3266,12 +3475,16 @@ function startBrick() {
 
         <span class="score-pill">
           Score :
-          <b id="brickScore">0</b>
+          <b id="brickScore">
+            0
+          </b>
         </span>
 
         <span class="score-pill">
           Vies :
-          <b id="brickLives">3</b>
+          <b id="brickLives">
+            3
+          </b>
         </span>
 
       </div>
@@ -3290,8 +3503,7 @@ function startBrick() {
         class="center muted"
         style="margin-top:12px"
       >
-        ← → ou A/D pour déplacer
-        la barre
+        ← → ou A/D pour déplacer la barre
       </p>
 
     </div>
@@ -3301,8 +3513,6 @@ function startBrick() {
     document.getElementById(
       "brickCanvas"
     );
-
-  if (!canvas) return;
 
   const ctx =
     canvas.getContext("2d");
@@ -3314,14 +3524,20 @@ function startBrick() {
     row < 5;
     row++
   ) {
+
     for (
       let col = 0;
       col < 10;
       col++
     ) {
+
       bricks.push({
-        x: 50 + col * 72,
-        y: 45 + row * 30,
+        x:
+          50 +
+          col * 72,
+        y:
+          45 +
+          row * 30,
         w: 60,
         h: 18,
         alive: true
@@ -3355,24 +3571,21 @@ function startBrick() {
   };
 
   window.onkeydown = e => {
+
     if (!state.brick)
       return;
 
     if (
-      e.key ===
-        "ArrowLeft" ||
-      e.key.toLowerCase() ===
-        "a"
+      e.key === "ArrowLeft" ||
+      e.key.toLowerCase() === "a"
     ) {
       state.brick.left =
         true;
     }
 
     if (
-      e.key ===
-        "ArrowRight" ||
-      e.key.toLowerCase() ===
-        "d"
+      e.key === "ArrowRight" ||
+      e.key.toLowerCase() === "d"
     ) {
       state.brick.right =
         true;
@@ -3380,24 +3593,21 @@ function startBrick() {
   };
 
   window.onkeyup = e => {
+
     if (!state.brick)
       return;
 
     if (
-      e.key ===
-        "ArrowLeft" ||
-      e.key.toLowerCase() ===
-        "a"
+      e.key === "ArrowLeft" ||
+      e.key.toLowerCase() === "a"
     ) {
       state.brick.left =
         false;
     }
 
     if (
-      e.key ===
-        "ArrowRight" ||
-      e.key.toLowerCase() ===
-        "d"
+      e.key === "ArrowRight" ||
+      e.key.toLowerCase() === "d"
     ) {
       state.brick.right =
         false;
@@ -3447,8 +3657,11 @@ function brickLoop() {
       )
     );
 
-  ball.x += ball.vx;
-  ball.y += ball.vy;
+  ball.x +=
+    ball.vx;
+
+  ball.y +=
+    ball.vy;
 
   if (
     ball.x - ball.r < 0 ||
@@ -3469,13 +3682,14 @@ function brickLoop() {
       paddle.y &&
     ball.y - ball.r <=
       paddle.y +
-        paddle.h &&
+      paddle.h &&
     ball.x >= paddle.x &&
     ball.x <=
       paddle.x +
-        paddle.w &&
+      paddle.w &&
     ball.vy > 0
   ) {
+
     ball.vy =
       -Math.abs(
         ball.vy
@@ -3497,8 +3711,9 @@ function brickLoop() {
 
   for (
     const brick of
-      game.bricks
+    game.bricks
   ) {
+
     if (!brick.alive)
       continue;
 
@@ -3507,13 +3722,14 @@ function brickLoop() {
         brick.x &&
       ball.x - ball.r <
         brick.x +
-          brick.w &&
+        brick.w &&
       ball.y + ball.r >
         brick.y &&
       ball.y - ball.r <
         brick.y +
-          brick.h
+        brick.h
     ) {
+
       brick.alive =
         false;
 
@@ -3540,7 +3756,9 @@ function brickLoop() {
       b => !b.alive
     )
   ) {
-    game.ended = true;
+
+    game.ended =
+      true;
 
     registerPlay(
       "Brick Breaker",
@@ -3563,6 +3781,7 @@ function brickLoop() {
     ball.y >
     canvas.height + 20
   ) {
+
     game.lives--;
 
     const lives =
@@ -3578,7 +3797,9 @@ function brickLoop() {
     if (
       game.lives <= 0
     ) {
-      game.ended = true;
+
+      game.ended =
+        true;
 
       registerPlay(
         "Brick Breaker",
@@ -3600,12 +3821,14 @@ function brickLoop() {
     ball.x =
       canvas.width / 2;
 
-    ball.y = 430;
+    ball.y =
+      430;
 
     ball.vx =
       random(-4, 4) || 3;
 
-    ball.vy = -4;
+    ball.vy =
+      -4;
   }
 
   drawBrick();
@@ -3641,6 +3864,7 @@ function drawBrick() {
 
   game.bricks.forEach(
     (brick, index) => {
+
       if (!brick.alive)
         return;
 
@@ -3700,7 +3924,9 @@ function startSpace() {
 
         <span class="score-pill">
           Score :
-          <b id="spaceScore">0</b>
+          <b id="spaceScore">
+            0
+          </b>
         </span>
 
       </div>
@@ -3719,24 +3945,19 @@ function startSpace() {
         class="center muted"
         style="margin-top:12px"
       >
-        ← → ou A/D pour déplacer
-        ton vaisseau
+        ← → ou A/D pour déplacer ton vaisseau
       </p>
 
       <div class="mobile-controls">
 
         <button
-          onclick="
-            spaceMove(-1)
-          "
+          onclick="spaceMove(-1)"
         >
           ◀
         </button>
 
         <button
-          onclick="
-            spaceMove(1)
-          "
+          onclick="spaceMove(1)"
         >
           ▶
         </button>
@@ -3750,8 +3971,6 @@ function startSpace() {
     document.getElementById(
       "spaceCanvas"
     );
-
-  if (!canvas) return;
 
   const ctx =
     canvas.getContext("2d");
@@ -3776,24 +3995,21 @@ function startSpace() {
   };
 
   window.onkeydown = e => {
+
     if (!state.space)
       return;
 
     if (
-      e.key ===
-        "ArrowLeft" ||
-      e.key.toLowerCase() ===
-        "a"
+      e.key === "ArrowLeft" ||
+      e.key.toLowerCase() === "a"
     ) {
       state.space.left =
         true;
     }
 
     if (
-      e.key ===
-        "ArrowRight" ||
-      e.key.toLowerCase() ===
-        "d"
+      e.key === "ArrowRight" ||
+      e.key.toLowerCase() === "d"
     ) {
       state.space.right =
         true;
@@ -3801,24 +4017,21 @@ function startSpace() {
   };
 
   window.onkeyup = e => {
+
     if (!state.space)
       return;
 
     if (
-      e.key ===
-        "ArrowLeft" ||
-      e.key.toLowerCase() ===
-        "a"
+      e.key === "ArrowLeft" ||
+      e.key.toLowerCase() === "a"
     ) {
       state.space.left =
         false;
     }
 
     if (
-      e.key ===
-        "ArrowRight" ||
-      e.key.toLowerCase() ===
-        "d"
+      e.key === "ArrowRight" ||
+      e.key.toLowerCase() === "d"
     ) {
       state.space.right =
         false;
@@ -3845,8 +4058,7 @@ function spaceMove(direction) {
     Math.max(
       25,
       Math.min(
-        game.canvas.width -
-          25,
+        game.canvas.width - 25,
         game.player.x
       )
     );
@@ -3892,17 +4104,27 @@ function spaceLoop(timestamp) {
       game.lastSpawn >
     game.spawnDelay
   ) {
+
     game.lastSpawn =
       timestamp;
 
     game.meteors.push({
-      x: random(
-        20,
-        canvas.width - 20
-      ),
+      x:
+        random(
+          20,
+          canvas.width - 20
+        ),
       y: -20,
-      r: random(9, 18),
-      speed: random(3, 7)
+      r:
+        random(
+          9,
+          18
+        ),
+      speed:
+        random(
+          3,
+          7
+        )
     });
 
     game.spawnDelay =
@@ -3917,7 +4139,8 @@ function spaceLoop(timestamp) {
 
   game.meteors.forEach(
     m => {
-      m.y += m.speed;
+      m.y +=
+        m.speed;
     }
   );
 
@@ -3930,8 +4153,9 @@ function spaceLoop(timestamp) {
 
   for (
     const meteor of
-      game.meteors
+    game.meteors
   ) {
+
     const dx =
       meteor.x -
       player.x;
@@ -3943,14 +4167,16 @@ function spaceLoop(timestamp) {
     const distance =
       Math.sqrt(
         dx * dx +
-          dy * dy
+        dy * dy
       );
 
     if (
       distance <
       meteor.r + 20
     ) {
-      game.ended = true;
+
+      game.ended =
+        true;
 
       const won =
         game.score >= 20;
@@ -3959,7 +4185,9 @@ function spaceLoop(timestamp) {
         "Space Dodge",
         game.score,
         won,
-        won ? 55 : 8
+        won
+          ? 55
+          : 8
       );
 
       showGameResult(
@@ -3970,7 +4198,9 @@ function spaceLoop(timestamp) {
           ? "Excellent !"
           : "Collision !",
         `Score : ${game.score}`,
-        won ? 55 : 8
+        won
+          ? 55
+          : 8
       );
 
       return;
@@ -4029,6 +4259,7 @@ function drawSpace() {
     i < 50;
     i++
   ) {
+
     const x =
       (i * 137) %
       canvas.width;
@@ -4076,6 +4307,7 @@ function drawSpace() {
 
   game.meteors.forEach(
     meteor => {
+
       ctx.fillStyle =
         "#ff6680";
 
@@ -4104,8 +4336,13 @@ function showGameResult(
   description,
   xp
 ) {
-  const currentGame =
-    state.game || "memory";
+  /*
+    On garde le jeu actuel avant stopAll()
+    pour que "Rejouer" relance le bon jeu.
+  */
+
+  const replayGame =
+    state.game;
 
   stopAll();
 
@@ -4123,7 +4360,7 @@ function showGameResult(
     <div class="card result">
 
       <div class="big">
-        ${escapeHTML(icon)}
+        ${icon}
       </div>
 
       <h2>
@@ -4153,27 +4390,21 @@ function showGameResult(
 
         <button
           class="btn primary"
-          onclick="
-            startGame('${currentGame}')
-          "
+          onclick="startGame('${replayGame || "memory"}')"
         >
           🔄 Rejouer
         </button>
 
         <button
           class="btn"
-          onclick="
-            navigate('games')
-          "
+          onclick="navigate('games')"
         >
           🎮 Autres jeux
         </button>
 
         <button
           class="btn"
-          onclick="
-            navigate('home')
-          "
+          onclick="navigate('home')"
         >
           ⌂ Accueil
         </button>
@@ -4210,9 +4441,8 @@ function renderQuizHome() {
           </h2>
 
           <p>
-            Teste tes connaissances
-            sans voir les réponses
-            à l'avance.
+            Teste tes connaissances sans voir
+            les réponses à l'avance.
           </p>
 
         </div>
@@ -4231,20 +4461,13 @@ function renderQuizHome() {
                 </div>
 
                 <h3>
-                  ${escapeHTML(
-                    category
-                  )}
+                  ${category}
                 </h3>
 
                 <p>
-                  ${
-                    quizData[
-                      category
-                    ].length
-                  }
+                  ${quizData[category].length}
                   questions disponibles
-                  avec plusieurs niveaux
-                  de difficulté.
+                  avec plusieurs niveaux de difficulté.
                 </p>
 
                 <div class="card-bottom">
@@ -4255,13 +4478,7 @@ function renderQuizHome() {
 
                   <button
                     class="btn primary"
-                    onclick="
-                      openQuizSetup(
-                        '${escapeHTML(
-                          category
-                        )}'
-                      )
-                    "
+                    onclick="openQuizSetup('${escapeHTML(category)}')"
                   >
                     Commencer
                   </button>
@@ -4279,10 +4496,13 @@ function renderQuizHome() {
   `;
 }
 
-function openQuizSetup(category) {
+function openQuizSetup(
+  category
+) {
   stopAll();
 
-  state.page = "quiz";
+  state.page =
+    "quiz";
 
   renderQuizSetup(
     category
@@ -4306,9 +4526,7 @@ function renderQuizSetup(
 
         <button
           class="btn"
-          onclick="
-            navigate('quiz')
-          "
+          onclick="navigate('quiz')"
         >
           ← Quiz
         </button>
@@ -4327,8 +4545,7 @@ function renderQuizSetup(
           </h2>
 
           <p class="muted">
-            Choisis la difficulté
-            et le nombre de questions.
+            Choisis la difficulté et le nombre de questions.
           </p>
 
         </div>
@@ -4345,6 +4562,7 @@ function renderQuizSetup(
               id="quizDifficulty"
               class="select"
             >
+
               <option value="all">
                 Toutes
               </option>
@@ -4375,6 +4593,7 @@ function renderQuizSetup(
               id="quizCount"
               class="select"
             >
+
               <option value="5">
                 5
               </option>
@@ -4397,22 +4616,13 @@ function renderQuizSetup(
 
           <div
             class="field"
-            style="
-              display:flex;
-              align-items:end
-            "
+            style="display:flex;align-items:end"
           >
 
             <button
               class="btn primary"
               style="width:100%"
-              onclick="
-                startQuiz(
-                  '${escapeHTML(
-                    category
-                  )}'
-                )
-              "
+              onclick="startQuiz('${escapeHTML(category)}')"
             >
               🚀 Commencer
             </button>
@@ -4433,11 +4643,13 @@ function prepareQuiz(
   count
 ) {
   let pool =
-    quizData[category] || [];
+    quizData[category] ||
+    [];
 
   if (
     difficulty !== "all"
   ) {
+
     const filtered =
       pool.filter(
         q =>
@@ -4448,7 +4660,8 @@ function prepareQuiz(
     if (
       filtered.length > 0
     ) {
-      pool = filtered;
+      pool =
+        filtered;
     }
   }
 
@@ -4461,9 +4674,13 @@ function prepareQuiz(
       )
     )
     .map(q => {
+
       const answers =
         q[1].map(
-          (text, index) => ({
+          (
+            text,
+            index
+          ) => ({
             text,
             correct:
               index === q[2]
@@ -4474,12 +4691,15 @@ function prepareQuiz(
         question: q[0],
         answers:
           shuffle(answers),
-        difficulty: q[3]
+        difficulty:
+          q[3]
       };
     });
 }
 
-function startQuiz(category) {
+function startQuiz(
+  category
+) {
   const difficulty =
     document.getElementById(
       "quizDifficulty"
@@ -4503,6 +4723,7 @@ function startQuiz(category) {
   if (
     !questions.length
   ) {
+
     showToast(
       "Impossible de charger ce quiz."
     );
@@ -4519,7 +4740,8 @@ function startQuiz(category) {
     index: 0,
     correct: 0,
     answered: false,
-    token: state.token
+    token:
+      state.token
   };
 
   render();
@@ -4531,9 +4753,10 @@ function startQuiz(category) {
 
 function renderQuizGame() {
   const q =
-    state.quiz?.questions[
-      state.quiz.index
-    ];
+    state.quiz
+      ?.questions[
+        state.quiz.index
+      ];
 
   if (!q) {
     finishQuiz();
@@ -4541,8 +4764,7 @@ function renderQuizGame() {
   }
 
   const total =
-    state.quiz.questions
-      .length;
+    state.quiz.questions.length;
 
   const progress =
     (
@@ -4566,7 +4788,8 @@ function renderQuizGame() {
           <span>
             Question
             ${state.quiz.index + 1}
-            / ${total}
+            /
+            ${total}
           </span>
 
         </div>
@@ -4580,9 +4803,7 @@ function renderQuizGame() {
         </div>
 
         <span class="tag">
-          ${escapeHTML(
-            q.difficulty
-          )}
+          ${q.difficulty}
         </span>
 
         <h1 class="quiz-question">
@@ -4595,12 +4816,13 @@ function renderQuizGame() {
 
           ${q.answers
             .map(
-              (answer, i) => `
+              (
+                answer,
+                i
+              ) => `
                 <button
                   class="answer"
-                  onclick="
-                    answerQuiz(${i})
-                  "
+                  onclick="answerQuiz(${i})"
                 >
                   ${escapeHTML(
                     answer.text
@@ -4648,28 +4870,38 @@ function answerQuiz(index) {
     ];
 
   buttons.forEach(
-    (button, i) => {
+    (
+      button,
+      i
+    ) => {
+
       button.disabled =
         true;
 
       if (
-        question.answers[i]
-          .correct
+        question.answers[
+          i
+        ].correct
       ) {
         button.classList.add(
           "correct"
         );
       }
+
     }
   );
 
   if (
     !selected.correct
   ) {
-    buttons[index]?.classList.add(
-      "wrong"
-    );
+
+    buttons[index]
+      ?.classList.add(
+        "wrong"
+      );
+
   } else {
+
     game.correct++;
   }
 
@@ -4683,11 +4915,15 @@ function answerQuiz(index) {
 
   savePlayer();
 
+  queueCloudSync();
+
   addTimer(() => {
+
     if (!state.quiz)
       return;
 
     game.index++;
+
     game.answered =
       false;
 
@@ -4695,10 +4931,14 @@ function answerQuiz(index) {
       game.index >=
       game.questions.length
     ) {
+
       finishQuiz();
+
     } else {
+
       render();
     }
+
   }, 700);
 }
 
@@ -4716,9 +4956,10 @@ function finishQuiz() {
 
   const percent =
     Math.round(
-      (game.correct /
-        total) *
-        100
+      (
+        game.correct /
+        total
+      ) * 100
     );
 
   const xp =
@@ -4734,9 +4975,10 @@ function finishQuiz() {
     total,
     xp,
     date:
-      new Date().toLocaleString(
-        "fr-FR"
-      )
+      new Date()
+        .toLocaleString(
+          "fr-FR"
+        )
   });
 
   player.history =
@@ -4746,13 +4988,21 @@ function finishQuiz() {
     );
 
   addXP(xp);
+
   updateAchievements();
+
   savePlayer();
 
-  syncPlayerToCloud();
+  queueCloudSync();
 
-  state.quiz = null;
-  state.page = "quiz";
+  const category =
+    game.category;
+
+  state.quiz =
+    null;
+
+  state.page =
+    "quiz";
 
   const app =
     document.getElementById(
@@ -4767,13 +5017,15 @@ function finishQuiz() {
       <div class="card result">
 
         <div class="big">
+
           ${
             percent >= 80
               ? "🏆"
               : percent >= 50
-              ? "🎓"
-              : "📚"
+                ? "🎓"
+                : "📚"
           }
+
         </div>
 
         <h2>
@@ -4793,8 +5045,7 @@ function finishQuiz() {
         </p>
 
         <p class="muted">
-          ${percent}%
-          de bonnes réponses
+          ${percent}% de bonnes réponses
         </p>
 
         <p
@@ -4813,31 +5064,21 @@ function finishQuiz() {
 
           <button
             class="btn primary"
-            onclick="
-              openQuizSetup(
-                '${escapeHTML(
-                  game.category
-                )}'
-              )
-            "
+            onclick="openQuizSetup('${escapeHTML(category)}')"
           >
             🔄 Refaire
           </button>
 
           <button
             class="btn"
-            onclick="
-              navigate('quiz')
-            "
+            onclick="navigate('quiz')"
           >
             🎓 Autres quiz
           </button>
 
           <button
             class="btn"
-            onclick="
-              navigate('home')
-            "
+            onclick="navigate('home')"
           >
             ⌂ Accueil
           </button>
@@ -4853,13 +5094,10 @@ function finishQuiz() {
 }
 
 /* =========================================================
-   GLOBAL LEADERBOARD PAGE
+   LEADERBOARD MONDIAL
    ========================================================= */
 
 function renderLeaderboard() {
-  const rank =
-    getPlayerRank();
-
   return `
     <div class="page">
 
@@ -4868,303 +5106,30 @@ function renderLeaderboard() {
         <div>
 
           <div class="eyebrow">
-            GLOBAL RANKING
+            RANKING
           </div>
 
           <h2>
-            🌍 Classement mondial
+            🏆 Classement mondial
           </h2>
 
           <p>
-            Compare ta progression
-            avec les joueurs de Nexora Play.
+            Les meilleurs joueurs de Nexora Play.
           </p>
 
         </div>
 
-        <button
-          class="btn"
-          onclick="
-            loadGlobalLeaderboard()
-          "
-        >
-          🔄 Actualiser
-        </button>
-
       </div>
 
-      <div class="card">
+      <div class="card leaderboard">
 
         <div
-          class="stats-grid"
-          style="margin-bottom:20px"
+          id="globalLeaderboardBody"
         >
-
-          <div class="stat">
-
-            <div class="icon">
-              🌍
-            </div>
-
-            <strong>
-              ${globalLeaderboard.length}
-            </strong>
-
-            <span>
-              Joueurs chargés
-            </span>
-
+          <div class="empty">
+            ⏳ Chargement du classement mondial...
           </div>
-
-          <div class="stat">
-
-            <div class="icon">
-              🏆
-            </div>
-
-            <strong>
-              ${
-                rank
-                  ? `#${rank}`
-                  : "—"
-              }
-            </strong>
-
-            <span>
-              Ton classement
-            </span>
-
-          </div>
-
-          <div class="stat">
-
-            <div class="icon">
-              ⭐
-            </div>
-
-            <strong>
-              ${totalXP()}
-            </strong>
-
-            <span>
-              Ton XP
-            </span>
-
-          </div>
-
-          <div class="stat">
-
-            <div class="icon">
-              🎮
-            </div>
-
-            <strong>
-              ${player.gamesPlayed}
-            </strong>
-
-            <span>
-              Tes parties
-            </span>
-
-          </div>
-
         </div>
-
-        ${
-          leaderboardLoading
-            ? `
-              <div class="empty">
-
-                <div
-                  style="font-size:45px"
-                >
-                  🌐
-                </div>
-
-                <h3>
-                  Chargement...
-                </h3>
-
-                <p>
-                  Récupération du
-                  classement mondial.
-                </p>
-
-              </div>
-            `
-            : leaderboardError
-            ? `
-              <div class="empty">
-
-                <div
-                  style="font-size:45px"
-                >
-                  ⚠️
-                </div>
-
-                <h3>
-                  Classement indisponible
-                </h3>
-
-                <p>
-                  ${escapeHTML(
-                    leaderboardError
-                  )}
-                </p>
-
-                <button
-                  class="btn primary"
-                  onclick="
-                    loadGlobalLeaderboard()
-                  "
-                  style="margin-top:15px"
-                >
-                  🔄 Réessayer
-                </button>
-
-              </div>
-            `
-            : globalLeaderboard.length
-            ? `
-              <div class="leaderboard">
-
-                <table>
-
-                  <thead>
-
-                    <tr>
-                      <th>#</th>
-                      <th>Joueur</th>
-                      <th>Niveau</th>
-                      <th>Parties</th>
-                      <th>Victoires</th>
-                      <th>XP</th>
-                    </tr>
-
-                  </thead>
-
-                  <tbody>
-
-                    ${globalLeaderboard
-                      .map(
-                        (p, index) => {
-
-                          const isMe =
-                            p.id ===
-                            cloudPlayerId;
-
-                          const medal =
-                            index === 0
-                              ? "🥇"
-                              : index === 1
-                              ? "🥈"
-                              : index === 2
-                              ? "🥉"
-                              : index + 1;
-
-                          return `
-                            <tr
-                              ${
-                                isMe
-                                  ? 'style="font-weight:900"'
-                                  : ""
-                              }
-                            >
-
-                              <td class="rank">
-                                ${medal}
-                              </td>
-
-                              <td>
-
-                                <strong>
-                                  ${escapeHTML(
-                                    p.name ||
-                                      "Player"
-                                  )}
-                                </strong>
-
-                                ${
-                                  isMe
-                                    ? `
-                                      <span class="tag">
-                                        Toi
-                                      </span>
-                                    `
-                                    : ""
-                                }
-
-                              </td>
-
-                              <td>
-                                ${Number(
-                                  p.level || 1
-                                )}
-                              </td>
-
-                              <td>
-                                ${Number(
-                                  p.games_played ||
-                                    0
-                                )}
-                              </td>
-
-                              <td>
-                                ${Number(
-                                  p.wins || 0
-                                )}
-                              </td>
-
-                              <td>
-                                ⭐
-                                ${Number(
-                                  p.xp || 0
-                                )}
-                              </td>
-
-                            </tr>
-                          `;
-                        }
-                      )
-                      .join("")}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-            `
-            : `
-              <div class="empty">
-
-                <div
-                  style="font-size:45px"
-                >
-                  🏆
-                </div>
-
-                <h3>
-                  Le classement est vide
-                </h3>
-
-                <p>
-                  Joue une partie pour
-                  apparaître dans le classement.
-                </p>
-
-                <button
-                  class="btn primary"
-                  onclick="
-                    navigate('games')
-                  "
-                  style="margin-top:15px"
-                >
-                  🎮 Jouer
-                </button>
-
-              </div>
-            `
-        }
 
       </div>
 
@@ -5174,7 +5139,7 @@ function renderLeaderboard() {
       >
 
         <h3>
-          🔐 Classement réel
+          🌐 Comment ça marche ?
         </h3>
 
         <p
@@ -5184,11 +5149,9 @@ function renderLeaderboard() {
             line-height:1.6
           "
         >
-          Les joueurs sont enregistrés
-          dans Supabase avec un identifiant
-          généré automatiquement par leur
-          navigateur. Aucun vrai nom n'est
-          nécessaire.
+          Ton profil est synchronisé avec Supabase
+          lorsque tu joues. Les joueurs partagent
+          le même classement mondial.
         </p>
 
       </div>
@@ -5208,8 +5171,8 @@ function renderProfile() {
   const percent =
     Math.min(
       100,
-      (player.xp /
-        xpNeed) *
+      player.xp /
+        xpNeed *
         100
     );
 
@@ -5253,35 +5216,26 @@ function renderProfile() {
 
           <div
             class="actions"
-            style="
-              justify-content:center;
-              margin-top:20px
-            "
+            style="justify-content:center;margin-top:20px"
           >
 
             <button
               class="btn"
-              onclick="
-                changeName()
-              "
+              onclick="changeName()"
             >
               ✏️ Modifier le nom
             </button>
 
             <button
               class="btn"
-              onclick="
-                changeAvatar()
-              "
+              onclick="changeAvatar()"
             >
               🎨 Avatar
             </button>
 
             <button
               class="btn danger"
-              onclick="
-                resetProgress()
-              "
+              onclick="resetProgress()"
             >
               🗑️ Réinitialiser
             </button>
@@ -5302,39 +5256,51 @@ function renderProfile() {
           >
 
             <div class="stat">
+
               <strong>
                 ${player.gamesPlayed}
               </strong>
+
               <span>
                 Parties
               </span>
+
             </div>
 
             <div class="stat">
+
               <strong>
                 ${player.wins}
               </strong>
+
               <span>
                 Victoires
               </span>
+
             </div>
 
             <div class="stat">
+
               <strong>
                 ${player.quizCorrect}
               </strong>
+
               <span>
                 Bonnes réponses
               </span>
+
             </div>
 
             <div class="stat">
+
               <strong>
                 ${player.streak}
               </strong>
+
               <span>
                 Streak
               </span>
+
             </div>
 
           </div>
@@ -5355,16 +5321,13 @@ function renderProfile() {
                   desc
                 ]) => `
                   <div
-                    class="
-                      achievement
-                      ${
-                        player.achievements.includes(
-                          id
-                        )
-                          ? "unlocked"
-                          : ""
-                      }
-                    "
+                    class="achievement ${
+                      player.achievements.includes(
+                        id
+                      )
+                        ? "unlocked"
+                        : ""
+                    }"
                   >
 
                     <strong>
@@ -5397,8 +5360,7 @@ function renderProfile() {
             </h2>
 
             <p>
-              Les dernières activités
-              de ton profil.
+              Les dernières activités de ton profil.
             </p>
 
           </div>
@@ -5413,7 +5375,10 @@ function renderProfile() {
                 <div class="history">
 
                   ${player.history
-                    .slice(0, 20)
+                    .slice(
+                      0,
+                      20
+                    )
                     .map(
                       h => `
                         <div
@@ -5455,8 +5420,7 @@ function renderProfile() {
               `
               : `
                 <div class="empty">
-                  Aucun historique
-                  pour le moment.
+                  Aucun historique pour le moment.
                 </div>
               `
           }
@@ -5468,10 +5432,6 @@ function renderProfile() {
     </div>
   `;
 }
-
-/* =========================================================
-   PROFILE ACTIONS
-   ========================================================= */
 
 function changeName() {
   const name =
@@ -5485,7 +5445,10 @@ function changeName() {
   const clean =
     name
       .trim()
-      .slice(0, 18);
+      .slice(
+        0,
+        18
+      );
 
   if (!clean)
     return;
@@ -5500,7 +5463,7 @@ function changeName() {
 
   savePlayer();
 
-  syncPlayerToCloud();
+  queueCloudSync();
 
   render();
 
@@ -5520,12 +5483,12 @@ function changeAvatar() {
     return;
 
   player.avatar =
-    [...avatar.trim()][0] ||
+    [
+      ...avatar.trim()
+    ][0] ||
     player.avatar;
 
   savePlayer();
-
-  syncPlayerToCloud();
 
   render();
 
@@ -5543,29 +5506,19 @@ async function resetProgress() {
   if (!confirmation)
     return;
 
-  if (supabaseClient) {
-    try {
-      await supabaseClient
-        .from("players")
-        .delete()
-        .eq(
-          "id",
-          cloudPlayerId
-        );
-    } catch (error) {
-      console.error(
-        "Erreur suppression cloud :",
-        error
-      );
-    }
-  }
-
   player =
     structuredClone(
       defaultPlayer
     );
 
   savePlayer();
+
+  /*
+    On conserve le même ID cloud.
+    Le profil mondial est remis à zéro.
+  */
+
+  await syncPlayerToSupabase();
 
   state.page =
     "home";
@@ -5578,12 +5531,13 @@ async function resetProgress() {
 }
 
 /* =========================================================
-   NAVIGATION CLICK
+   NAVIGATION
    ========================================================= */
 
 document.addEventListener(
   "click",
   event => {
+
     const button =
       event.target.closest(
         "[data-page]"
@@ -5599,17 +5553,19 @@ document.addEventListener(
 );
 
 /* =========================================================
-   INITIALISATION
+   START
    ========================================================= */
 
 updateHeader();
 render();
 
 /*
- * Synchronisation initiale.
- * Le joueur sera créé dans Supabase
- * lorsqu'il possède des données.
- */
-if (player.gamesPlayed > 0) {
-  syncPlayerToCloud();
+  Si le joueur a déjà joué auparavant,
+  on synchronise son profil au chargement.
+*/
+
+if (
+  player.gamesPlayed > 0
+) {
+  queueCloudSync();
 }
